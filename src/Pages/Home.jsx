@@ -28,7 +28,7 @@ function Home() {
         </div>
 
         {/* Chat List  */}
-        <div className='w-[45%] bg-white border-e-2 px-5'>
+        <div className='w-full sm:w-[45%] bg-white border-e-2 px-5'>
           <h1 className='my-6 font-semibold text-2xl'>Chats</h1>
           <div className='flex border rounded-md p-3 items-center border-slate-300'>
             <input type="text" className='w-full outline-none placeholder:text-slate-400 font-semibold' placeholder='Search Chats' />
@@ -37,8 +37,8 @@ function Home() {
         </div>
 
         {/* Chat Message  */}
-        <div className='bg-white flex p-20'>
-          <img src={bg_chat} alt="" className='bg-cover object-contain' />
+        <div className='hidden bg-white w-[55%] sm:flex justify-center items-center'>
+          <img src={bg_chat} alt="" className='bg-cover object-contain w-[500px] h-[500px]' />
         </div>
 
         {/* Account  */}
