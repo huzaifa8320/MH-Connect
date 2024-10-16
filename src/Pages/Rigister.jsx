@@ -1,12 +1,13 @@
-import { useContext, useState } from "react"
+import { useContext, useEffect, useState } from "react"
 import { UserContext } from "../Context/UserContext"
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Account_bg from '../assets/Account-bg.png'
 import Google_logo from '../assets/Google-logo.png'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCaretRight, faCircleExclamation, faEnvelope, faLock, faSpinner, faUser, faXmark } from "@fortawesome/free-solid-svg-icons";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../utils/firebase";
+import { createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "../utils/firebase";
+import { doc, endAt, onSnapshot, setDoc } from "firebase/firestore";
 
 function Rigister() {
 
@@ -16,12 +17,38 @@ function Rigister() {
     const [email, setEmail] = useState(null);
     const [password, setPassword] = useState(null);
     const [rigister_loading, setRisgister_Loading] = useState(false);
+    const navigate = useNavigate()
+
+    // Checking User is login 
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            if (currentUser) {
+                const unsub = onSnapshot(doc(db, "users", currentUser.uid), (doc) => {
+                    if (doc.exists()) {
+                        console.log("Current data: ", doc.data());
+navigate('/')
+                    }
+                    else{
+                        console.log('No doc');
+                        
+                    }
+                });
+                console.log('User Is login', currentUser);
+            }
+            else {
+                console.log("Not login");
+
+            }
+        });
+
+        return () => unsubscribe();
+    }, [auth]);
 
 
     console.log(user);
 
+    // Rigister New User using email
     const rigister_handle = () => {
-
         if (!username) {
             setError_Alert_Text('Please Enter Username')
         }
@@ -34,40 +61,49 @@ function Rigister() {
         else {
             setRisgister_Loading(true)
             createUserWithEmailAndPassword(auth, email, password)
-                .then((userCredential) => {
-                    // Signed up 
+
+                .then(async (userCredential) => {
                     const user = userCredential.user;
                     console.log(user);
+                    await setDoc(doc(db, "users", user.uid), {
+                        uid: user.uid,
+                        displayName: username,
+                        email: user.email,
+                        profile_pic: user.photoURL
+                      });
+                    console.log("Document Added");
                     setRisgister_Loading(false)
-
-                    // ...
                 })
+
                 .catch((error) => {
                     const errorCode = error.code;
                     const errorMessage = error.message;
                     console.log(errorCode);
+
                     if (errorCode == 'auth/invalid-email') {
                         setError_Alert_Text('Please Enter a valid Email')
                     }
+
                     else if (errorCode == 'auth/weak-password') {
                         setError_Alert_Text('Password Atleast 6 word')
                     }
+
                     else if (errorCode == 'auth/email-already-in-use') {
                         setError_Alert_Text('Email Already Exists')
                     }
+
                     console.log(errorMessage);
                     setRisgister_Loading(false)
-
-
-                    // ..
                 });
         }
+
         setTimeout(() => {
             setError_Alert_Text(null)
         }, 2000);
 
     }
 
+    // Alert 
     const closeWarningAlert = () => {
         setError_Alert_Text(null)
     }
@@ -107,7 +143,7 @@ function Rigister() {
                                 <FontAwesomeIcon icon={faLock} color={`${password ? '#4462ba' : '#969294'}`} />
                                 <input type="password" onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" placeholder="Password" className={`outline-none ms-3 font-semibold text-[#4462ba]`} />
                             </div>
-                            <button type="button" onClick={rigister_handle} className="bg-[#7C9AF2] my-5 text-white font-semibold text-[18px] p-2.5 rounded-full">Rigister {rigister_loading ? <FontAwesomeIcon icon={faSpinner} spinPulse/> : <FontAwesomeIcon icon={faCaretRight} />}</button>
+                            <button type="button" onClick={rigister_handle} className="bg-[#7C9AF2] my-5 text-white font-semibold text-[18px] p-2.5 rounded-full">Rigister {rigister_loading ? <FontAwesomeIcon icon={faSpinner} spinPulse /> : <FontAwesomeIcon icon={faCaretRight} />}</button>
                             <p className="text-center text-[#9B9799] font-semibold">
                                 Already Have an Account?
                                 <Link to={'/login'} className="text-[#4462BA] hover:underline font-semibold ms-1">Login</Link>

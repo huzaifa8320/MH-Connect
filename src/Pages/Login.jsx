@@ -41,6 +41,9 @@ function Login() {
                     console.log(errorCode);
                     console.log(errorMessage);
                     if (errorCode == 'auth/invalid-email') {
+                        setError_Alert_Text('Please Enter a Valid Email ✉')
+                    }
+                    else if (errorCode == 'auth/invalid-credential'){
                         setError_Alert_Text('Account Not Found 🚫')
                     }
                     setLogin_Loading(false)
