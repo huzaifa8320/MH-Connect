@@ -1,11 +1,11 @@
-import { useContext, useState } from "react"
+import { useContext, useEffect, useState } from "react"
 import { UserContext } from "../Context/UserContext"
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Account_bg from '../assets/Account-bg.png'
 import Google_logo from '../assets/Google-logo.png'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCaretRight, faCircleExclamation, faEnvelope, faLock, faSpinner, faXmark } from "@fortawesome/free-solid-svg-icons";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { onAuthStateChanged, signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../utils/firebase";
 
 function Login() {
@@ -15,6 +15,7 @@ function Login() {
     const [password, setPassword] = useState(null);
     const [error_Alert_Text, setError_Alert_Text] = useState(null);
     const [login_loading, setLogin_Loading] = useState(false);
+    const navigate = useNavigate()
     // console.log(user);
 
     const login_handle = () => {
@@ -59,6 +60,22 @@ function Login() {
         setError_Alert_Text(null)
     }
 
+
+
+    // Checking User is login 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        console.log('User Is login');
+        navigate('/')
+      }
+      else {
+        console.log("Not login");
+      }
+    });
+
+    return () => unsubscribe();
+  }, [auth]);
 
     return (
         <div className="h-screen flex mx-5 md:mx-10 justify-center">

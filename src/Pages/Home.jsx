@@ -6,49 +6,84 @@ import bg_chat from '../assets/Chat-bg.jpg'
 import Google_logo from '../assets/Google-logo.png'
 import { useContext, useEffect, useState } from "react";
 import { UserContext } from "../Context/UserContext";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, limit, onSnapshot, query } from "firebase/firestore";
 import { auth, db } from "../utils/firebase";
 import Chat_Messages from "../Components/Chat_Messages";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { UsersContext } from "../Context/UsersContext";
 
 
 function Home() {
 
   const { user, setUser } = useContext(UserContext)
+  const { users_data, setUsers_Data } = useContext(UsersContext)
   const [chat_list, setChat_List] = useState([])
   const [chat_details, setChat_Details] = useState(null)
-  const [currentChat, setCurrentChat] = useState([]);
-  console.log(user.isLogin);
+  const [currentChat, setCurrentChat] = useState();
+  const [searchInput, setSearchInput] = useState('');
+
+  // console.log(user.isLogin);
+  const navigate = useNavigate()
 
   const [activeIcon, setActiveIcon] = useState('chat');
   const [toggle_profile, setToggle_Profile] = useState(false);
   const current_User = auth.currentUser;
-  const user_data = async () => {
+  console.log(users_data);
 
-    try {
-      const querySnapshot = await getDocs(collection(db, "users"));
-      const users = []
+  // const chatId = current_User.uid > currentChat.uid ? `${current_User.uid}_${currentChat.uid}` : `${currentChat.uid}_${current_User.uid}`;
 
-      querySnapshot.forEach((doc) => {
-        // console.log(doc.id, " => ", doc.data());
-        // console.log(chat_list);
-        users.push(doc.data());
-      });
-      setChat_List(users)
-    }
-
-    catch (error) {
-      console.error("Error fetching documents: ", error);
-    }
-
-  };
-
+  // Fetch users 
   useEffect(() => {
-    user_data(); // Call user_data once when the component mounts
-    // console.log(chat_list);
 
-  }, []);
+    const user_data = async () => {
+      try {
+        const querySnapshot = await getDocs(query(collection(db, "users"), limit(10)));
+        const users = [];
+
+        querySnapshot.forEach((doc) => {
+          users.push(doc.data());
+          console.log('Fetch');
+
+        });
+        // setChat_List(users);
+
+        setUsers_Data(users);
+        console.log(users_data);
+      } catch (error) {
+        console.error("Error fetching documents: ", error);
+      }
+    };
+    user_data()
+  }, [])
+
+  // Checking User is login 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        console.log('User Is login');
+      }
+      else {
+        navigate('/login')
+        console.log("Not login");
+
+      }
+    });
+
+    return () => unsubscribe();
+  }, [auth]);
 
 
+  // Logout User 
+  const handle_logout = () => {
+    signOut(auth).then(() => {
+      console.log('Logout Success');
+
+    }).catch((error) => {
+      console.log('Logout Fail', error);
+
+    });
+
+  }
 
   return (
     <div className='h-screen flex bg-slate-200 border-4 border-yellow-600 pt-10'>
@@ -66,7 +101,7 @@ function Home() {
             {
               toggle_profile &&
               <div className="w-32 text-[18px] font-semibold cursor-pointer absolute left-12 bottom-0">
-                <div className="border hover:bg-[#557ae6] shadow hover:text-white flex justify-center rounded items-center">LogOut</div>
+                <div onClick={handle_logout} className="border hover:bg-[#557ae6] shadow hover:text-white flex justify-center rounded items-center">LogOut</div>
               </div>
             }
           </div>
@@ -77,30 +112,32 @@ function Home() {
           <div className="">
             <h1 className='my-6 font-semibold text-2xl'>Chats</h1>
             <div className='flex border rounded-md p-3 items-center border-slate-300'>
-              <input type="text" className='w-full outline-none placeholder:text-slate-400 font-semibold' placeholder='Search Chats' />
+              <input type="text" onChange={(e) => setSearchInput(e.target.value)} className='w-full outline-none placeholder:text-slate-400 font-semibold' placeholder='Search Chats' />
               <FontAwesomeIcon icon={faSearchengin} className='text-slate-600 text-2xl cursor-pointer' />
             </div>
           </div>
           {/* Chats  */}
           <div className="border my-3 max-h-[300px]  overflow-y-scroll">
-            {chat_list.map((user, index) => (
-              <Link to={`/chat/${user.uid}`} onClick={()=>setChat_Details(true)} key={user.uid} className="flex cursor-pointer items-center p-3 gap-3 border">
-                <div>{user?.profile_pic ? <img src={user.profile_pic} alt="" /> : <div className="border rounded-full flex w-8 h-8 bg-[#D2D5DA]"><FontAwesomeIcon icon={faUser} className="m-auto text-[#6f7277a8]"/></div>}</div>
-                <p>{user.displayName}</p>
+            {users_data.filter(user =>
+              user.displayName.toLowerCase().includes(searchInput.toLowerCase())
+            ).map(user => (
+              <Link to={`/chat/${user.uid}`} onClick={() => setCurrentChat(user)} key={user.uid} className="flex cursor-pointer items-center p-3 gap-3 border">
+                <div>{user?.profile_pic ? <img src={user.profile_pic} alt="" /> : <div className="border rounded-full flex w-8 h-8 bg-[#D2D5DA]"><FontAwesomeIcon icon={faUser} className="m-auto text-[#6f7277a8]" /></div>}</div>
+                <p>{user.displayName.slice(0,1).toUpperCase()}{user.displayName.slice(1)}</p>
               </Link>
             ))}
           </div>
         </div>
 
         {/* Chat Message  */}
-        {chat_details ? <Chat_Messages/> :
-        <div className='hidden bg-white w-[55%] sm:flex justify-center items-center'>
-          <img src={bg_chat} alt="" className='bg-cover object-contain w-[500px] h-[500px]' />
-        </div>
+        {currentChat ? <Chat_Messages /> :
+          <div className='hidden bg-white w-[55%] sm:flex justify-center items-center'>
+            <img src={bg_chat} alt="" className='bg-cover object-contain w-[500px] h-[500px]' />
+          </div>
         }
 
         {/* Account  */}
-        {user.isLogin ?
+        {current_User ?
           <div className='absolute top-0 right-0 cursor-pointer m-3 flex items-center'>
             <p>Already</p>
           </div> :
