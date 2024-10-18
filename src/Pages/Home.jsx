@@ -1,7 +1,7 @@
 import { faSearchengin } from "@fortawesome/free-brands-svg-icons";
 import { faCommentDots, faGlobe, faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import bg_chat from '../assets/Chat-bg.jpg'
 import Google_logo from '../assets/Google-logo.png'
 import { useContext, useEffect, useState } from "react";
@@ -21,6 +21,9 @@ function Home() {
   const [chat_details, setChat_Details] = useState(null)
   const [currentChat, setCurrentChat] = useState();
   const [searchInput, setSearchInput] = useState('');
+  const { id } = useParams()
+console.log('Param' ,id);
+
 
   // console.log(user.isLogin);
   const navigate = useNavigate()
@@ -91,7 +94,7 @@ function Home() {
         <FontAwesomeIcon icon={faGlobe} className='text-[#557ae6] mx-1' />
         <h1 className=' text-black font-semibold'>MH-Connect</h1>
       </div>
-      <div className='flex w-full border border-red-800'>
+      <div className='flex w-full'>
         {/* Side Nav  */}
         <div className='bg-slate-200 text-[#557ae6] text-2xl flex flex-col gap-8 mt-24 px-1'>
           <FontAwesomeIcon icon={faCommentDots} className={`cursor-pointer w-8 ${activeIcon == 'chat' && 'border-s-2  border-blue-700'}`} onClick={() => setActiveIcon('chat')} />
@@ -130,7 +133,7 @@ function Home() {
         </div>
 
         {/* Chat Message  */}
-        {currentChat ? <Chat_Messages /> :
+        {id ? <Chat_Messages id={id}/> :
           <div className='hidden bg-white w-[55%] sm:flex justify-center items-center'>
             <img src={bg_chat} alt="" className='bg-cover object-contain w-[500px] h-[500px]' />
           </div>

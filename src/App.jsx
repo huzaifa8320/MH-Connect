@@ -21,7 +21,7 @@ function App() {
               <Route path='/' element={<Home />} />
               <Route path='/login' element={<Login />} />
               <Route path='/rigister' element={<Rigister />} />
-              <Route path='/chat/:uid' element={<Home />} />
+              <Route path='/chat/:id' element={<Home />} />
             </Routes>
           </UsersContextProvider>
         </UserContextProvider>
