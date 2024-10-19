@@ -31,33 +31,38 @@ console.log('Param' ,id);
   const [activeIcon, setActiveIcon] = useState('chat');
   const [toggle_profile, setToggle_Profile] = useState(false);
   const current_User = auth.currentUser;
-  console.log(users_data);
+  console.log(current_User);
 
   // const chatId = current_User.uid > currentChat.uid ? `${current_User.uid}_${currentChat.uid}` : `${currentChat.uid}_${current_User.uid}`;
 
   // Fetch users 
   useEffect(() => {
-
     const user_data = async () => {
-      try {
-        const querySnapshot = await getDocs(query(collection(db, "users"), limit(10)));
-        const users = [];
+        try {
+            // Fetch the first 10 users from Firestore
+            const querySnapshot = await getDocs(query(collection(db, "users"), limit(10)));
+            const users = [];
 
-        querySnapshot.forEach((doc) => {
-          users.push(doc.data());
-          console.log('Fetch');
+            // Filter users immediately after fetching
+            querySnapshot.forEach((doc) => {
+              const data = doc.data(); // Get document data
+          
+              // Check if data exists before accessing its properties
+              if (data && data.email !== current_User?.email) {
+                  users.push(data); // Push data to users array
+              }
+          });
 
-        });
-        // setChat_List(users);
-
-        setUsers_Data(users);
-        console.log(users_data);
-      } catch (error) {
-        console.error("Error fetching documents: ", error);
-      }
+            // Update state with the filtered users
+            setUsers_Data(users); 
+            console.log("Filtered users: ", users); // Log the final users array
+        } catch (error) {
+            console.error("Error fetching documents: ", error);
+        }
     };
-    user_data()
-  }, [])
+
+    user_data(); // Call the user_data function
+}, [current_User]);
 
   // Checking User is login 
   useEffect(() => {

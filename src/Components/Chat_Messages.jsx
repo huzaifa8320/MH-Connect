@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { useParams } from "react-router"
 import { auth, db } from "../utils/firebase";
 import { useContext, useEffect, useState } from "react";
@@ -20,65 +20,35 @@ function Chat_Messages({ id }) {
     const [emoji_show, setEmoji_Show] = useState(false)
     const [inputValue, setInputValue] = useState("");
     const [filteredChats, setFilteredChats] = useState([]);
+    const [chats, setChats] = useState([]);
     const current_user_id = auth.currentUser?.uid;
     const another_user_id = id;
 
-    const [chats, setChats] = useState([]);
 
-
+    // Unique id generate 
     const generateChatId = (current_user_id, another_user_id) => {
-        // Ensure both user IDs are sorted and then joined to create a unique chat ID
         return [current_user_id, another_user_id].sort().join('_');
     };
-    // console.log(uid);
-
     const chatId = generateChatId(current_user_id, another_user_id);
-    const chatDocRef = doc(db, 'chats', chatId); // Fixed line
+
+    // Show user chat 
     useEffect(() => {
-        console.log('Wow', chatId);
-
-        // Check if the chat room already exists
-        getDoc(chatDocRef).then((docSnap) => { // Use getDoc for document retrieval
-            if (!docSnap.exists()) { // Check if the document exists
-                // Chat does not exist, create it
-                setDoc(chatDocRef, {
-                    users: [current_user_id, another_user_id],
-                    createdAt: serverTimestamp(), // Use serverTimestamp for timestamp
-                }).then(() => {
-                    console.log('New chat room created:', chatId);
-                }).catch((error) => {
-                    console.error('Error creating chat room:', error);
-                });
-            } else {
-                // Chat room exists
-                console.log('Chat room already exists:', chatId);
-            }
-        }).catch((error) => {
-            console.error('Error checking chat room existence:', error);
-        });
-
-        setChat_Details(false)
         if (users_data) {
             const matchedUser = users_data.find(users_data => users_data.uid == id);
             setCurrent_Chat(matchedUser || 'Not Found');
         }
-
-
-
     }, [users_data, id])
-    console.log('Current', current_chat);
+
 
 
     // Emoji Pack 
     const onEmojiClick = (emojiObject) => {
-        // console.log(emojiObject.emoji);
-
         setInputValue(inputValue + emojiObject.emoji);
         setEmoji_Show(false)
     }
 
     // Send Message 
-    const send_message = () => {
+    const send_message = async () => {
         let input_trim = inputValue.trim()
         if (inputValue) {
             const message = {
@@ -86,23 +56,70 @@ function Chat_Messages({ id }) {
                 text: input_trim,
                 timestamp: serverTimestamp(),
             };
+            const docRef = doc(db, "chats", chatId);
+            const chatSnapshot = await getDoc(docRef);
 
-            console.log(message);
-            const messagesRef = collection(chatDocRef, 'messages');
+            if (chatSnapshot.exists()) {
+                const messagesRef = collection(db, "chats", chatId, "messages");
 
-            addDoc(messagesRef, message).then(() => {
-                setInputValue('');
-            }).catch((error) => {
-                console.error('Error sending message:', error);
-            });
+                try {
+                    await addDoc(messagesRef, message);
+                    console.log('Message sent successfully');
+                } catch (error) {
+                    console.error('Error sending message: ', error);
+                }
+            } else {
+                setDoc(chatDocRef, {
+                    users: [current_user_id, another_user_id],
+                    createdAt: serverTimestamp(),
+                }).then(async () => {
+                    try {
+                        await addDoc(messagesRef, message);
+                        console.log('Message sent successfully');
+                    } catch (error) {
+                        console.error('Error sending message: ', error);
+                    }
+                    console.log('New chat room created:', chatId);
+                }).catch((error) => {
+                    console.error('Error creating chat room:', error);
+                });
+
+
+
+            }
         }
     }
 
-    console.log('CHat', chats);
+
+    // Send message to firebase 
+    useEffect(() => {
+
+        const messagesRef = collection(db, "chats", chatId, "messages");
+
+        // console.log(chatId);
+
+        // Subscribe to real-time updates
+        const unsub = onSnapshot(messagesRef, (querySnapshot) => {
+            const messages = [];
+            querySnapshot.forEach((doc) => {
+                messages.push({ id: doc.id, ...doc.data() });
+            });
+            console.log("Current messages: ", messages);
+        }, (error) => {
+            console.error("Error fetching messages: ", error);
+        });
+
+        // Cleanup function to unsubscribe from the listener
+        return () => {
+            unsub();
+        };
+
+    }, [id])
 
 
     // User all Personal Chats 
     useEffect(() => {
+
         if (current_user_id) {
             console.log('Current User ID:', current_user_id); // Log user ID for debugging
 
@@ -112,53 +129,53 @@ function Chat_Messages({ id }) {
 
             // Set up a real-time listener
             const unsubscribeChats = onSnapshot(q, async (querySnapshot) => {
-                const fetchedChats = querySnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data(),
-                }));
+                const fetchedChats = querySnapshot.docs.map(doc => (
+                    // setChats(doc.data())
+                    console.log('room', doc.data())
+                ));
+                // Clean up the listener on unmount
+                return () => {
+                    unsubscribeChats(); // Unsubscribe from chats listener
+                };
+            })
+            //     const chatsWithMessages = await Promise.all(fetchedChats.map(async (chat) => {
 
-                const chatsWithMessages = await Promise.all(fetchedChats.map(async (chat) => {
-                    const messagesRef = collection(db, 'chats', chat.id, 'messages'); // Reference to messages subcollection
+            //         // Set up a real-time listener for messages
+            //         const unsubscribeMessages = onSnapshot(messagesRef, (messagesSnapshot) => {
+            //             const messages = messagesSnapshot.docs.map(messageDoc => ({
+            //                 id: messageDoc.id,
+            //                 ...messageDoc.data(),
+            //             }));
 
-                    // Set up a real-time listener for messages
-                    const unsubscribeMessages = onSnapshot(messagesRef, (messagesSnapshot) => {
-                        const messages = messagesSnapshot.docs.map(messageDoc => ({
-                            id: messageDoc.id,
-                            ...messageDoc.data(),
-                        }));
+            //             // Update chat with messages
+            //             setChats(prevChats => prevChats.map(c =>
+            //                 c.id === chat.id ? { ...c, messages } : c
+            //             ));
+            //         });
 
-                        // Update chat with messages
-                        setChats(prevChats => prevChats.map(c =>
-                            c.id === chat.id ? { ...c, messages } : c
-                        ));
-                    });
+            //         return { ...chat, messages: [] }; // Initialize messages to an empty array
+            //     }));
 
-                    return { ...chat, messages: [] }; // Initialize messages to an empty array
-                }));
+            //     // Set initial chats without messages
+            //     setChats(chatsWithMessages);
+            // });
 
-                // Set initial chats without messages
-                setChats(chatsWithMessages);
-            });
 
-            // Clean up the listener on unmount
-            return () => {
-                unsubscribeChats(); // Unsubscribe from chats listener
-            };
         }
-    }, [current_user_id, chatId]);
+    }, [current_user_id]);
 
 
 
     // Show chats 
-    useEffect(() => {
-        const chatId = generateChatId(current_user_id, another_user_id);
-        const matchedChats = chats.filter(chat => chat.id === chatId);
+    // useEffect(() => {
+    //     // const chatId = generateChatId(current_user_id, another_user_id);
+    //     const matchedChats = chats.filter(chat => chat.id === chatId);
 
-        setFilteredChats(matchedChats);
-    }, [chats, chatId]);
+    //     setFilteredChats(matchedChats);
+    // }, [chats, chatId]);
 
-    console.log('Match Mess', filteredChats);
-    // console.log('Match Mess',filteredChats);
+    // console.log('Match Mess', filteredChats);
+    // // console.log('Match Mess',filteredChats);
 
     return (
         <div className="border relative w-[55%] h-full">
@@ -197,7 +214,7 @@ function Chat_Messages({ id }) {
                                                             .sort((a, b) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0)) // Sort by timestamp
                                                             .map((message) => (
                                                                 <div className={`${message.senderId === current_user_id ? "ml-auto" : "mr-auto"
-                                                                } max-w-[60%] min-w-20 p-2 rounded-md justify-center bg-white flex`} key={message.id}>
+                                                                    } max-w-[60%] min-w-20 p-2 rounded-md justify-center bg-white flex`} key={message.id}>
                                                                     <p>
                                                                         {message.text} {/* Display the message text */}
                                                                     </p>
